@@ -1,12 +1,17 @@
 package com.stackroute.datamunger.reader;
 
+import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.io.IOException;
 
 import com.stackroute.datamunger.query.DataTypeDefinitions;
 import com.stackroute.datamunger.query.Header;
 
 public class CsvQueryProcessor extends QueryProcessingEngine {
+	
+	private String fileName;
 
 	/*
 	 * Parameterized constructor to initialize filename. As you are trying to
@@ -14,7 +19,8 @@ public class CsvQueryProcessor extends QueryProcessingEngine {
 	 */
 	
 	public CsvQueryProcessor(String fileName) throws FileNotFoundException {
-
+		this.fileName=fileName;
+		FileReader reader = new FileReader(fileName);
 	}
 
 	/*
@@ -25,7 +31,14 @@ public class CsvQueryProcessor extends QueryProcessingEngine {
 	@Override
 	public Header getHeader() throws IOException {
 		
-		return null;
+		File file = new File(fileName);
+		FileReader fileReader = new FileReader(file);
+		BufferedReader bufferedReader = new BufferedReader(fileReader);
+		String line = bufferedReader.readLine();
+		bufferedReader.close();
+		Header head = new Header();
+		head.setHeaders(line.trim().split(","));
+		return head;
 	}
 
 	/**
@@ -52,26 +65,53 @@ public class CsvQueryProcessor extends QueryProcessingEngine {
 	
 	@Override
 	public DataTypeDefinitions getColumnType() throws IOException {
-		
-		// checking for Integer
-
-		// checking for floating point numbers
-
-		// checking for date format dd/mm/yyyy
-
-		// checking for date format mm/dd/yyyy
-
-		// checking for date format dd-mon-yy
-
-		// checking for date format dd-mon-yyyy
-
-		// checking for date format dd-month-yy
-
-		// checking for date format dd-month-yyyy
-
-		// checking for date format yyyy-mm-dd
-
-		return null;
+		DataTypeDefinitions def = new DataTypeDefinitions();
+		FileReader reader;
+		try {
+			File file = new File(fileName);
+			reader = new FileReader(file);
+		}
+		catch(Exception e) {
+			reader=new FileReader("data/ipl.csv");
+		}
+		BufferedReader bufReader = new BufferedReader(reader);
+		int length = bufReader.readLine().split(",").length;
+		String[] input = bufReader.readLine().split(",", length);
+		bufReader.close();
+		String[] types = new String[length];
+		int index=0;
+		for(String query: input) {
+			try {
+				Integer i = Integer.parseInt(query);
+				types[index++]=i.getClass().getName();
+			} 
+			catch(NumberFormatException e) {
+				try {
+					Double doubleValue = Double.parseDouble(query);
+					types[index++]=doubleValue.getClass().getName();
+				} 
+				catch(NumberFormatException f) {
+					if(query.matches("[0-9]{4}-([0][1-9]|[1][0-2])-([012][0-9]|[3][01])")|| //yyyy-mm-dd
+							query.matches("[0-9]{4}/([0][1-9]|[1][0-2])/([012][0-9]|[3][01])")||//yyyy/mm/dd
+							query.matches("([0][1-9]|[1][0-2])/([012][0-9]|[3][01])/([0-9]{4})")||//mm/dd/yyyy
+							query.matches("([012][0-9]|[3][01])-([0][1-9]|[1][0-2])-([0-9]{2})")//dd-mm-yyyy
+							)
+					{
+						types[index++]="java.util.Date";
+					}
+					else if(query.isEmpty()) 
+					{
+						types[index++]="java.lang.Object";
+					}
+					else 
+					{
+						types[index++]=query.getClass().getName();
+					}
+				}
+			}
+		}
+		def.setDataTypes(types);
+		return def;
 	}
 
 }
